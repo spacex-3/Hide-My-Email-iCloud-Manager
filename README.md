@@ -1,33 +1,33 @@
-# Hide My Email Manager
+# Hide My Email iCloud Manager
 
-A Python script that manages Apple iCloud Hide My Email addresses. List, deactivate, and delete Hide My Email entries with a beautiful console interface.
+A local web UI for managing Apple iCloud Hide My Email aliases.
 
-## 🎥 Video Tutorial - Full Guide
+This project lets you keep your iCloud cookies locally, browse existing aliases in the browser, export the current list to `emails.txt`, and manually deactivate or delete selected entries.
 
-[![Full Tutorial](https://img.youtube.com/vi/I_if9q9gx6I/0.jpg)](https://youtu.be/I_if9q9gx6I)
+## Features
 
-
+- Local Web UI for Hide My Email management
+- Edit and save `cookies.txt` from the browser
+- Fetch and search current aliases
+- Filter active / inactive aliases
+- Batch deactivate selected aliases
+- Batch delete selected aliases
+- Auto-export the latest list to `emails.txt`
 
 ## Quick Start
 
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/not-knope/Hide-My-Email-iCloud-Manager.git
+git clone https://github.com/spacex-3/Hide-My-Email-iCloud-Manager.git
 cd Hide-My-Email-iCloud-Manager
 ```
 
 ### 2. Install dependencies
 
-Install the required Python packages:
-
 ```bash
 pip install -r requirements.txt
 ```
-
-This will install:
-- `requests` - for making HTTP requests to iCloud API
-- `rich` - for beautiful console output
 
 ### 3. Configure cookies
 
@@ -37,126 +37,80 @@ Copy the template and add your iCloud cookies:
 cp cookies.txt.template cookies.txt
 ```
 
-Then edit `cookies.txt` and paste your cookies in this format:
+Example format:
 
 ```python
 cookies = {
     'X-APPLE-WEBAUTH-USER': '"v=1:s=0:d=YOUR_DSID"',
     'X-APPLE-WEBAUTH-TOKEN': '"v=2:t=YOUR_TOKEN"',
     'X-APPLE-DS-WEB-SESSION-TOKEN': '"YOUR_SESSION_TOKEN"',
-    # ... add all other cookies here
+    # ... add all other required cookies here
 }
 ```
 
-**How to get cookies + FULL SCRIPT TUTORIAL:** See the [video tutorial](https://youtu.be/I_if9q9gx6I) above or follow these steps:
-1. Log in to https://www.icloud.com
-2. Open Developer Tools (F12)
-3. Go to Application/Storage tab → Cookies → `https://www.icloud.com`
-4. Copy all `X-APPLE-*` cookies
-5. Paste them into `cookies.txt`
+How to get cookies:
+1. Log in to `https://www.icloud.com`
+2. Open Developer Tools
+3. Open the Application / Storage tab
+4. Find cookies for `https://www.icloud.com`
+5. Copy the required `X-APPLE-*` cookies into `cookies.txt`
 
-### 4. Run the script
+### 4. Start the Web UI
 
 ```bash
-python main.py
+python server.py
 ```
 
-## Features
+Then open:
 
-* 📧 Fetch complete Hide My Email list from iCloud
-* 🛑 Deactivate active Hide My Email addresses
-* 🗑️ Delete Hide My Email entries
-* 💾 Export email list to `emails.txt`
-* 🎨 Beautiful console interface with Rich library
+```text
+http://127.0.0.1:8000
+```
 
-## Screenshots
+## Web UI Behavior
 
-### Console Output
+- Starting `server.py` does **not** automatically delete aliases
+- Saving or updating `cookies.txt` does **not** trigger deletions
+- Refreshing the list only fetches aliases and updates `emails.txt`
+- Deactivate / delete actions only run after you explicitly select rows and confirm the action
 
-![Hide My Email Manager Emails List](https://i.nuuls.com/dZfdo.png)
-![Hide My Email Manager in action](https://i.nuuls.com/zL-04.png)
+## Project Structure
+
+```text
+server.py          Local HTTP server for the web UI
+hme_core.py        Shared iCloud API logic
+web/index.html     Frontend markup
+web/app.js         Frontend interactions
+web/styles.css     Frontend styles
+cookies.txt.template  Cookie template example
+```
+
+## Privacy & Safety
+
+Sensitive local files are kept out of Git by default:
+
+- `cookies.txt`
+- `emails.txt`
+- `venv/`
+- `__pycache__/`
+
+Do not commit real iCloud cookies to any remote repository.
 
 ## Output
 
-The script will:
+The exported `emails.txt` format is:
 
-1. Load your cookies from `cookies.txt`
-2. Fetch all Hide My Email entries from iCloud
-3. Display them in a beautiful formatted table
-4. Save the list to `emails.txt`
-5. Automatically deactivate active entries
-6. Delete all entries (both active and inactive)
-
-### Output File Format
-
-The `emails.txt` file contains one entry per line:
-
-```
+```text
 anonymousId: abc123... | email: xyz@icloud.com | active: True
 anonymousId: def456... | email: abc@icloud.com | active: False
 ```
 
-## Prerequisites
+## Requirements
 
-* Python 3.7 or higher
-* Apple iCloud account
-* Valid iCloud session cookies
-
-## Error Handling
-
-The script handles:
-
-* 🔒 Authentication failures (invalid or expired cookies)
-* 🌐 Network connectivity issues
-* ⏱️ API timeouts
-* 📁 File I/O errors
-* 🔍 Invalid cookie format
-* 📊 Empty response handling
-
-## Troubleshooting
-
-**Cookies not working?**
-- Make sure you're logged into iCloud.com
-- Cookies expire - extract fresh cookies
-- Ensure all required cookies are in `cookies.txt`
-
-**No entries found?**
-- Verify you have Hide My Email addresses in your iCloud account
-- Check that your cookies are valid and not expired
-
-**API errors?**
-- Wait a few minutes and try again (rate limiting)
-- Verify your internet connection
-- Check if iCloud services are operational
-
-## Security Notes
-
-⚠️ **Important:**
-- Never share your cookies with anyone
-- Cookies expire - you may need to refresh them periodically
-- `cookies.txt` is already in `.gitignore` - never commit it
-
-## Contributing
-
-Contributions are welcome! Feel free to:
-
-* Report bugs
-* Suggest features
-* Submit pull requests
+- Python 3.7+
+- Valid iCloud session cookies
+- Internet access from your machine to iCloud endpoints
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Support
-
-Having issues or questions? Please open an issue on GitHub.
-
-## Acknowledgments
-
-* [Rich](https://github.com/Textualize/rich) - Beautiful terminal formatting
-* [Requests](https://requests.readthedocs.io/) - HTTP library for Python
-
-
-
-
+MIT License. See `LICENSE` for details.

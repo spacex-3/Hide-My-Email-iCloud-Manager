@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hide My Email Manager</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">iCloud Hide My Email</p>
+          <h1>本地 Web 前端</h1>
+          <p class="hero-copy">
+            用浏览器管理 `cookies.txt`、拉取别名列表、批量停用或删除，并自动导出到 `emails.txt`。
+          </p>
+        </div>
+        <div class="hero-actions">
+          <button id="saveCookiesBtn" class="primary">保存 Cookies</button>
+          <button id="loadTemplateBtn" class="ghost">载入模板</button>
+          <button id="refreshBtn" class="secondary">刷新列表</button>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section class="panel cookies-panel">
+          <div class="panel-header">
+            <div>
+              <h2>Cookies</h2>
+              <p id="cookiePathHint" class="hint"></p>
+            </div>
+            <span id="cookieStatus" class="status-pill muted">未保存</span>
+          </div>
+          <textarea id="cookiesInput" spellcheck="false"></textarea>
+          <p class="hint">支持 `cookies = {...}` 或纯 Python dict。</p>
+        </section>
+
+        <section class="panel workspace-panel">
+          <div class="stats-grid">
+            <article class="stat-card">
+              <span>总数</span>
+              <strong id="totalCount">0</strong>
+            </article>
+            <article class="stat-card">
+              <span>启用中</span>
+              <strong id="activeCount">0</strong>
+            </article>
+            <article class="stat-card">
+              <span>已停用</span>
+              <strong id="inactiveCount">0</strong>
+            </article>
+            <article class="stat-card">
+              <span>已选中</span>
+              <strong id="selectedCount">0</strong>
+            </article>
+          </div>
+
+          <div class="toolbar">
+            <div class="toolbar-group">
+              <input id="searchInput" type="search" placeholder="搜索邮箱 / ID / 标签" />
+              <select id="filterSelect">
+                <option value="all">全部</option>
+                <option value="active">仅启用</option>
+                <option value="inactive">仅停用</option>
+              </select>
+            </div>
+            <div class="toolbar-group">
+              <button id="selectVisibleBtn" class="ghost">选择当前结果</button>
+              <button id="clearSelectionBtn" class="ghost">清空选择</button>
+              <button id="deactivateBtn" class="warn">停用选中</button>
+              <button id="deleteBtn" class="danger">删除选中</button>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th class="checkbox-col"><input id="toggleAll" type="checkbox" /></th>
+                  <th>邮箱</th>
+                  <th>状态</th>
+                  <th>标签</th>
+                  <th>转发到</th>
+                  <th>ID</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody">
+                <tr>
+                  <td colspan="6" class="empty-row">还没有数据，先保存 Cookies 后点击“刷新列表”。</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="footer-note">
+            <span id="exportHint">导出文件：emails.txt</span>
+            <span id="lastActionHint">等待操作</span>
+          </div>
+        </section>
+      </main>
+
+      <section class="panel logs-panel">
+        <div class="panel-header">
+          <div>
+            <h2>操作日志</h2>
+            <p class="hint">只显示最近几条关键结果。</p>
+          </div>
+          <button id="clearLogBtn" class="ghost">清空日志</button>
+        </div>
+        <div id="logList" class="log-list"></div>
+      </section>
+    </div>
+
+    <template id="logItemTemplate">
+      <div class="log-item">
+        <span class="log-time"></span>
+        <span class="log-level"></span>
+        <span class="log-text"></span>
+      </div>
+    </template>
+
+    <script src="/app.js" defer></script>
+  </body>
+</html>
