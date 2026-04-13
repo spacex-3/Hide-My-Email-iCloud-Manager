@@ -12,16 +12,18 @@ from hme_core import (
     COOKIES_FILE,
     EMAILS_FILE,
     delete_hme,
-    export_hme_list,
     fetch_hme_list,
     fetch_hme_list_with_source,
     get_active_auth_status,
+    get_active_cached_list,
+    get_saved_accounts_payload,
     load_cookie_template,
     load_cookies_text,
     login_icloud_account,
     logout_icloud_account,
     request_icloud_2fa_code,
     save_cookies_text,
+    switch_icloud_account,
     summarize_items,
     verify_icloud_2fa_code,
     deactivate_hme,
@@ -34,7 +36,7 @@ PORT = int(os.getenv("PORT", "8000"))
 
 
 class AppHandler(BaseHTTPRequestHandler):
-    server_version = "HideMyEmailWeb/2.0"
+    server_version = "HideMyEmailWeb/3.0"
 
     def do_GET(self) -> None:
         path = urlparse(self.path).path
@@ -42,11 +44,9 @@ class AppHandler(BaseHTTPRequestHandler):
         if path == "/api/bootstrap":
             self._handle_bootstrap()
             return
-
         if path == "/api/list":
             self._handle_list()
             return
-
         if path == "/api/auth/status":
             self._handle_auth_status()
             return
@@ -59,25 +59,23 @@ class AppHandler(BaseHTTPRequestHandler):
         if path == "/api/cookies/save":
             self._handle_save_cookies()
             return
-
         if path == "/api/action":
             self._handle_action()
             return
-
         if path == "/api/auth/login":
             self._handle_auth_login()
             return
-
         if path == "/api/auth/request-2fa":
             self._handle_auth_request_2fa()
             return
-
         if path == "/api/auth/verify-2fa":
             self._handle_auth_verify_2fa()
             return
-
         if path == "/api/auth/logout":
             self._handle_auth_logout()
+            return
+        if path == "/api/auth/switch":
+            self._handle_auth_switch()
             return
 
         self._send_json(HTTPStatus.NOT_FOUND, {"error": "Not found"})
@@ -102,6 +100,15 @@ class AppHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def _response_context(self) -> dict:
+        return {
+            "authStatus": get_active_auth_status(),
+            "savedAccounts": get_saved_accounts_payload(),
+            "cachedList": get_active_cached_list(),
+            "cookiesPath": str(COOKIES_FILE.name),
+            "emailsPath": str(EMAILS_FILE.name),
+        }
 
     def _serve_static(self, request_path: str) -> None:
         relative = "index.html" if request_path in {"", "/"} else request_path.lstrip("/")
@@ -129,14 +136,12 @@ class AppHandler(BaseHTTPRequestHandler):
             {
                 "cookiesText": load_cookies_text(),
                 "cookieTemplate": load_cookie_template(),
-                "cookiesPath": str(COOKIES_FILE.name),
-                "emailsPath": str(EMAILS_FILE.name),
-                "authStatus": get_active_auth_status(),
+                **self._response_context(),
             },
         )
 
     def _handle_auth_status(self) -> None:
-        self._send_json(HTTPStatus.OK, {"status": get_active_auth_status()})
+        self._send_json(HTTPStatus.OK, self._response_context())
 
     def _handle_auth_login(self) -> None:
         try:
@@ -155,6 +160,26 @@ class AppHandler(BaseHTTPRequestHandler):
                 "ok": True,
                 "message": status.get("message", "登录成功"),
                 "status": status,
+                **self._response_context(),
+            },
+        )
+
+    def _handle_auth_switch(self) -> None:
+        try:
+            payload = self._read_json()
+            profile_key = str(payload.get("profileKey", "")).strip()
+            status = switch_icloud_account(profile_key)
+        except Exception as exc:
+            self._send_json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+            return
+
+        self._send_json(
+            HTTPStatus.OK,
+            {
+                "ok": True,
+                "message": status.get("message", "已切换账号"),
+                "status": status,
+                **self._response_context(),
             },
         )
 
@@ -171,6 +196,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 "ok": True,
                 "message": status.get("message", "已触发验证码"),
                 "status": status,
+                **self._response_context(),
             },
         )
 
@@ -189,6 +215,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 "ok": True,
                 "message": status.get("message", "验证码已提交"),
                 "status": status,
+                **self._response_context(),
             },
         )
 
@@ -199,12 +226,17 @@ class AppHandler(BaseHTTPRequestHandler):
             self._send_json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
             return
 
-        self._send_json(HTTPStatus.OK, result)
+        self._send_json(
+            HTTPStatus.OK,
+            {
+                **result,
+                **self._response_context(),
+            },
+        )
 
     def _handle_list(self) -> None:
         try:
             items, source = fetch_hme_list_with_source()
-            export_hme_list(items)
         except Exception as exc:
             self._send_json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
             return
@@ -214,9 +246,8 @@ class AppHandler(BaseHTTPRequestHandler):
             {
                 "items": items,
                 "summary": summarize_items(items),
-                "exportedTo": EMAILS_FILE.name,
                 "source": source,
-                "authStatus": get_active_auth_status(),
+                **self._response_context(),
             },
         )
 
@@ -229,7 +260,7 @@ class AppHandler(BaseHTTPRequestHandler):
             self._send_json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
             return
 
-        self._send_json(HTTPStatus.OK, {"ok": True, "message": "cookies.txt 已保存"})
+        self._send_json(HTTPStatus.OK, {"ok": True, "message": "cookies.txt 已保存", **self._response_context()})
 
     def _handle_action(self) -> None:
         try:
@@ -247,7 +278,6 @@ class AppHandler(BaseHTTPRequestHandler):
 
             current_items = fetch_hme_list()
             current_map = {item["anonymousId"]: item for item in current_items}
-
             results = []
             for anon_id in normalized_ids:
                 item = current_map.get(anon_id)
@@ -273,7 +303,6 @@ class AppHandler(BaseHTTPRequestHandler):
                 )
 
             refreshed_items, source = fetch_hme_list_with_source()
-            export_hme_list(refreshed_items)
         except Exception as exc:
             self._send_json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
             return
@@ -285,9 +314,8 @@ class AppHandler(BaseHTTPRequestHandler):
                 "results": results,
                 "items": refreshed_items,
                 "summary": summarize_items(refreshed_items),
-                "exportedTo": EMAILS_FILE.name,
                 "source": source,
-                "authStatus": get_active_auth_status(),
+                **self._response_context(),
             },
         )
 

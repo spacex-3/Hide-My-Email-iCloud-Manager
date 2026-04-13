@@ -9,32 +9,39 @@
   <body>
     <div class="page-shell">
       <header class="hero">
-        <div>
-          <p class="eyebrow">iCloud Hide My Email</p>
-          <h1>本地 Web 控制台</h1>
-          <p class="hero-copy">
-            支持中国区 / 美国区账号登录、2FA、本地持久化 session，也保留手动 `cookies.txt` 兼容模式。
-          </p>
-        </div>
-        <div class="hero-actions">
-          <button id="refreshAuthBtn" class="ghost">检查会话</button>
-          <button id="refreshBtn" class="secondary">刷新列表</button>
+        <div class="hero-main">
+          <div class="hero-copy-block">
+            <p class="eyebrow">iCloud Hide My Email</p>
+            <h1>本地控制台</h1>
+            <p class="hero-copy">
+              支持中国区 / 美国区账号登录、2FA、本地持久化 session，并兼容手动 `cookies.txt` 模式。
+            </p>
+            <div class="hero-meta">
+              <span id="heroAuthBadge" class="status-pill muted">未登录</span>
+              <span id="heroSourceBadge" class="status-pill muted">数据源：未登录</span>
+              <span id="heroCountBadge" class="status-pill muted">0 条别名</span>
+            </div>
+          </div>
+          <div class="hero-actions">
+            <button id="refreshAuthBtn" class="ghost">检查会话</button>
+            <button id="refreshBtn" class="secondary">刷新列表</button>
+          </div>
         </div>
       </header>
 
       <main class="layout">
         <div class="left-column">
           <section class="panel auth-panel">
-            <div class="panel-header">
+            <div class="panel-header compact-header">
               <div>
                 <h2>账号登录</h2>
-                <p class="hint">参考 icloudpd / pyicloud 的持久化 session 思路实现。</p>
+                <p class="hint">本地保存多个账号的 session，可直接切换。</p>
               </div>
               <span id="authStatusPill" class="status-pill muted">未登录</span>
             </div>
 
             <div class="form-grid">
-              <label class="field-group">
+              <label class="field-group field-small">
                 <span>区服</span>
                 <select id="regionSelect">
                   <option value="us">美国区 / 默认</option>
@@ -55,8 +62,8 @@
 
             <div class="button-row">
               <button id="loginBtn" class="primary">账号登录</button>
-              <button id="request2faBtn" class="secondary">触发验证码 / 设备提示</button>
-              <button id="logoutBtn" class="ghost">退出本地会话</button>
+              <button id="request2faBtn" class="secondary">触发验证码</button>
+              <button id="logoutBtn" class="ghost">退出会话</button>
             </div>
 
             <div class="verify-box">
@@ -64,76 +71,98 @@
                 <span>2FA 验证码</span>
                 <input id="twoFactorCodeInput" type="text" inputmode="numeric" placeholder="输入 6 位验证码" maxlength="8" />
               </label>
-              <button id="verify2faBtn" class="primary">验证 2FA</button>
+              <button id="verify2faBtn" class="primary">验证</button>
             </div>
 
             <div class="meta-list">
-              <div class="meta-item">
+              <div class="meta-item compact-meta">
                 <span class="meta-label">当前账号</span>
                 <strong id="authAccount">-</strong>
               </div>
-              <div class="meta-item">
+              <div class="meta-item compact-meta">
                 <span class="meta-label">区服</span>
                 <strong id="authRegion">-</strong>
               </div>
-              <div class="meta-item">
+              <div class="meta-item compact-meta span-all">
                 <span class="meta-label">状态说明</span>
                 <strong id="authNotice">等待登录</strong>
               </div>
-              <div class="meta-item span-all">
+              <div class="meta-item compact-meta span-all">
                 <span class="meta-label">Session 目录</span>
                 <code id="authSessionDir">-</code>
               </div>
-              <div class="meta-item span-all">
+              <div class="meta-item compact-meta span-all">
                 <span class="meta-label">Session 文件</span>
                 <code id="authSessionFiles">-</code>
               </div>
             </div>
 
-            <p id="authHint" class="hint">
-              登录态会保存在本地 `.pyicloud/`。这能尽量延长复用时间，但 Apple 仍可能定期要求重新登录或重新 2FA。
+            <div class="saved-accounts-block">
+              <div class="saved-accounts-header">
+                <div>
+                  <h3>已保存账号</h3>
+                  <p class="hint">切换账号时优先复用本地 session 和缓存列表。</p>
+                </div>
+                <span id="savedAccountsCount" class="status-pill muted">0 个账号</span>
+              </div>
+              <div id="savedAccountsList" class="saved-accounts-list"></div>
+            </div>
+
+            <p id="authHint" class="hint auth-hint">
+              登录态会保存在本地 `.pyicloud/`。只保存 session / cookie 快照和账号资料，不保存密码明文。
             </p>
           </section>
 
           <section class="panel cookies-panel">
-            <div class="panel-header">
+            <div class="panel-header compact-header">
               <div>
-                <h2>手动 Cookies（兼容模式）</h2>
+                <h2>手动 Cookies</h2>
                 <p id="cookiePathHint" class="hint"></p>
               </div>
-              <span id="cookieStatus" class="status-pill muted">未保存</span>
-            </div>
-            <div class="button-row compact">
-              <button id="saveCookiesBtn" class="primary">保存 Cookies</button>
-              <button id="loadTemplateBtn" class="ghost">载入模板</button>
+              <div class="panel-actions">
+                <span id="cookieStatus" class="status-pill muted">未保存</span>
+                <button id="saveCookiesBtn" class="primary">保存</button>
+                <button id="loadTemplateBtn" class="ghost">模板</button>
+              </div>
             </div>
             <textarea id="cookiesInput" spellcheck="false"></textarea>
-            <p class="hint">支持 `cookies = {...}` 或纯 Python dict。登录成功后也会自动导出当前 cookies 快照到这里。</p>
+            <p class="hint">支持 `cookies = {...}` 或纯 Python dict。切换账号时也会同步当前账号的 cookies 快照。</p>
           </section>
         </div>
 
         <section class="panel workspace-panel">
-          <div class="stats-grid">
-            <article class="stat-card">
+          <div class="panel-header workspace-header compact-header">
+            <div>
+              <h2>别名列表</h2>
+              <p class="hint">按当前账号区分缓存列表与实时列表。</p>
+            </div>
+            <div class="panel-badges">
+              <span id="dataSourceBadge" class="status-pill muted">数据源：未登录</span>
+              <span id="visibleCountBadge" class="status-pill muted">可见 0</span>
+            </div>
+          </div>
+
+          <div class="stats-grid compact-stats">
+            <article class="stat-card compact-card">
               <span>总数</span>
               <strong id="totalCount">0</strong>
             </article>
-            <article class="stat-card">
+            <article class="stat-card compact-card">
               <span>启用中</span>
               <strong id="activeCount">0</strong>
             </article>
-            <article class="stat-card">
+            <article class="stat-card compact-card">
               <span>已停用</span>
               <strong id="inactiveCount">0</strong>
             </article>
-            <article class="stat-card">
+            <article class="stat-card compact-card accent-card">
               <span>已选中</span>
               <strong id="selectedCount">0</strong>
             </article>
           </div>
 
           <div class="toolbar">
-            <div class="toolbar-group">
+            <div class="toolbar-group toolbar-search-group">
               <input id="searchInput" type="search" placeholder="搜索邮箱 / ID / 标签" />
               <select id="filterSelect">
                 <option value="all">全部</option>
@@ -141,7 +170,7 @@
                 <option value="inactive">仅停用</option>
               </select>
             </div>
-            <div class="toolbar-group">
+            <div class="toolbar-group toolbar-action-group">
               <button id="selectVisibleBtn" class="ghost">选择当前结果</button>
               <button id="clearSelectionBtn" class="ghost">清空选择</button>
               <button id="deactivateBtn" class="warn">停用选中</button>
@@ -169,20 +198,20 @@
             </table>
           </div>
 
-          <div class="footer-note">
+          <div class="footer-note compact-footer">
             <span id="exportHint">导出文件：emails.txt</span>
-            <span id="lastActionHint">等待操作</span>
+            <span id="lastActionHint" class="footer-state">等待操作</span>
           </div>
         </section>
       </main>
 
       <section class="panel logs-panel">
-        <div class="panel-header">
+        <div class="panel-header compact-header">
           <div>
             <h2>操作日志</h2>
-            <p class="hint">只显示最近几条关键结果。</p>
+            <p class="hint">保留最近的关键结果，方便回看操作轨迹。</p>
           </div>
-          <button id="clearLogBtn" class="ghost">清空日志</button>
+          <button id="clearLogBtn" class="ghost">清空</button>
         </div>
         <div id="logList" class="log-list"></div>
       </section>
@@ -194,6 +223,20 @@
         <span class="log-level"></span>
         <span class="log-text"></span>
       </div>
+    </template>
+
+    <template id="accountItemTemplate">
+      <button type="button" class="saved-account-item">
+        <div class="saved-account-main">
+          <div class="saved-account-title-row">
+            <span class="saved-account-title"></span>
+            <span class="saved-account-badges"></span>
+          </div>
+          <div class="saved-account-subtitle"></div>
+          <div class="saved-account-meta"></div>
+        </div>
+        <span class="saved-account-action">切换</span>
+      </button>
     </template>
 
     <script src="/app.js" defer></script>
