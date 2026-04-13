@@ -11,30 +11,106 @@
       <header class="hero">
         <div>
           <p class="eyebrow">iCloud Hide My Email</p>
-          <h1>本地 Web 前端</h1>
+          <h1>本地 Web 控制台</h1>
           <p class="hero-copy">
-            用浏览器管理 `cookies.txt`、拉取别名列表、批量停用或删除，并自动导出到 `emails.txt`。
+            支持中国区 / 美国区账号登录、2FA、本地持久化 session，也保留手动 `cookies.txt` 兼容模式。
           </p>
         </div>
         <div class="hero-actions">
-          <button id="saveCookiesBtn" class="primary">保存 Cookies</button>
-          <button id="loadTemplateBtn" class="ghost">载入模板</button>
+          <button id="refreshAuthBtn" class="ghost">检查会话</button>
           <button id="refreshBtn" class="secondary">刷新列表</button>
         </div>
       </header>
 
       <main class="layout">
-        <section class="panel cookies-panel">
-          <div class="panel-header">
-            <div>
-              <h2>Cookies</h2>
-              <p id="cookiePathHint" class="hint"></p>
+        <div class="left-column">
+          <section class="panel auth-panel">
+            <div class="panel-header">
+              <div>
+                <h2>账号登录</h2>
+                <p class="hint">参考 icloudpd / pyicloud 的持久化 session 思路实现。</p>
+              </div>
+              <span id="authStatusPill" class="status-pill muted">未登录</span>
             </div>
-            <span id="cookieStatus" class="status-pill muted">未保存</span>
-          </div>
-          <textarea id="cookiesInput" spellcheck="false"></textarea>
-          <p class="hint">支持 `cookies = {...}` 或纯 Python dict。</p>
-        </section>
+
+            <div class="form-grid">
+              <label class="field-group">
+                <span>区服</span>
+                <select id="regionSelect">
+                  <option value="us">美国区 / 默认</option>
+                  <option value="cn">中国区</option>
+                </select>
+              </label>
+
+              <label class="field-group span-2">
+                <span>Apple ID</span>
+                <input id="appleIdInput" type="email" placeholder="name@example.com" autocomplete="username" />
+              </label>
+
+              <label class="field-group span-2">
+                <span>密码</span>
+                <input id="passwordInput" type="password" placeholder="仅用于当前登录，不会写入仓库" autocomplete="current-password" />
+              </label>
+            </div>
+
+            <div class="button-row">
+              <button id="loginBtn" class="primary">账号登录</button>
+              <button id="request2faBtn" class="secondary">触发验证码 / 设备提示</button>
+              <button id="logoutBtn" class="ghost">退出本地会话</button>
+            </div>
+
+            <div class="verify-box">
+              <label class="field-group grow">
+                <span>2FA 验证码</span>
+                <input id="twoFactorCodeInput" type="text" inputmode="numeric" placeholder="输入 6 位验证码" maxlength="8" />
+              </label>
+              <button id="verify2faBtn" class="primary">验证 2FA</button>
+            </div>
+
+            <div class="meta-list">
+              <div class="meta-item">
+                <span class="meta-label">当前账号</span>
+                <strong id="authAccount">-</strong>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">区服</span>
+                <strong id="authRegion">-</strong>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">状态说明</span>
+                <strong id="authNotice">等待登录</strong>
+              </div>
+              <div class="meta-item span-all">
+                <span class="meta-label">Session 目录</span>
+                <code id="authSessionDir">-</code>
+              </div>
+              <div class="meta-item span-all">
+                <span class="meta-label">Session 文件</span>
+                <code id="authSessionFiles">-</code>
+              </div>
+            </div>
+
+            <p id="authHint" class="hint">
+              登录态会保存在本地 `.pyicloud/`。这能尽量延长复用时间，但 Apple 仍可能定期要求重新登录或重新 2FA。
+            </p>
+          </section>
+
+          <section class="panel cookies-panel">
+            <div class="panel-header">
+              <div>
+                <h2>手动 Cookies（兼容模式）</h2>
+                <p id="cookiePathHint" class="hint"></p>
+              </div>
+              <span id="cookieStatus" class="status-pill muted">未保存</span>
+            </div>
+            <div class="button-row compact">
+              <button id="saveCookiesBtn" class="primary">保存 Cookies</button>
+              <button id="loadTemplateBtn" class="ghost">载入模板</button>
+            </div>
+            <textarea id="cookiesInput" spellcheck="false"></textarea>
+            <p class="hint">支持 `cookies = {...}` 或纯 Python dict。登录成功后也会自动导出当前 cookies 快照到这里。</p>
+          </section>
+        </div>
 
         <section class="panel workspace-panel">
           <div class="stats-grid">
@@ -87,7 +163,7 @@
               </thead>
               <tbody id="tableBody">
                 <tr>
-                  <td colspan="6" class="empty-row">还没有数据，先保存 Cookies 后点击“刷新列表”。</td>
+                  <td colspan="6" class="empty-row">还没有数据，先登录 iCloud 或保存 Cookies 后点击“刷新列表”。</td>
                 </tr>
               </tbody>
             </table>

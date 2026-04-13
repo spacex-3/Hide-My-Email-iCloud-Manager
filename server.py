@@ -12,14 +12,19 @@ from hme_core import (
     COOKIES_FILE,
     EMAILS_FILE,
     delete_hme,
-    deactivate_hme,
     export_hme_list,
     fetch_hme_list,
+    fetch_hme_list_with_source,
+    get_active_auth_status,
     load_cookie_template,
-    load_cookies,
     load_cookies_text,
+    login_icloud_account,
+    logout_icloud_account,
+    request_icloud_2fa_code,
     save_cookies_text,
     summarize_items,
+    verify_icloud_2fa_code,
+    deactivate_hme,
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -29,7 +34,7 @@ PORT = int(os.getenv("PORT", "8000"))
 
 
 class AppHandler(BaseHTTPRequestHandler):
-    server_version = "HideMyEmailWeb/1.0"
+    server_version = "HideMyEmailWeb/2.0"
 
     def do_GET(self) -> None:
         path = urlparse(self.path).path
@@ -40,6 +45,10 @@ class AppHandler(BaseHTTPRequestHandler):
 
         if path == "/api/list":
             self._handle_list()
+            return
+
+        if path == "/api/auth/status":
+            self._handle_auth_status()
             return
 
         self._serve_static(path)
@@ -53,6 +62,22 @@ class AppHandler(BaseHTTPRequestHandler):
 
         if path == "/api/action":
             self._handle_action()
+            return
+
+        if path == "/api/auth/login":
+            self._handle_auth_login()
+            return
+
+        if path == "/api/auth/request-2fa":
+            self._handle_auth_request_2fa()
+            return
+
+        if path == "/api/auth/verify-2fa":
+            self._handle_auth_verify_2fa()
+            return
+
+        if path == "/api/auth/logout":
+            self._handle_auth_logout()
             return
 
         self._send_json(HTTPStatus.NOT_FOUND, {"error": "Not found"})
@@ -106,13 +131,79 @@ class AppHandler(BaseHTTPRequestHandler):
                 "cookieTemplate": load_cookie_template(),
                 "cookiesPath": str(COOKIES_FILE.name),
                 "emailsPath": str(EMAILS_FILE.name),
+                "authStatus": get_active_auth_status(),
             },
         )
 
+    def _handle_auth_status(self) -> None:
+        self._send_json(HTTPStatus.OK, {"status": get_active_auth_status()})
+
+    def _handle_auth_login(self) -> None:
+        try:
+            payload = self._read_json()
+            apple_id = str(payload.get("appleId", "")).strip()
+            password = str(payload.get("password", ""))
+            region = str(payload.get("region", "us"))
+            status = login_icloud_account(apple_id, password, region)
+        except Exception as exc:
+            self._send_json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+            return
+
+        self._send_json(
+            HTTPStatus.OK,
+            {
+                "ok": True,
+                "message": status.get("message", "登录成功"),
+                "status": status,
+            },
+        )
+
+    def _handle_auth_request_2fa(self) -> None:
+        try:
+            status = request_icloud_2fa_code()
+        except Exception as exc:
+            self._send_json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+            return
+
+        self._send_json(
+            HTTPStatus.OK,
+            {
+                "ok": True,
+                "message": status.get("message", "已触发验证码"),
+                "status": status,
+            },
+        )
+
+    def _handle_auth_verify_2fa(self) -> None:
+        try:
+            payload = self._read_json()
+            code = str(payload.get("code", "")).strip()
+            status = verify_icloud_2fa_code(code)
+        except Exception as exc:
+            self._send_json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+            return
+
+        self._send_json(
+            HTTPStatus.OK,
+            {
+                "ok": True,
+                "message": status.get("message", "验证码已提交"),
+                "status": status,
+            },
+        )
+
+    def _handle_auth_logout(self) -> None:
+        try:
+            result = logout_icloud_account()
+        except Exception as exc:
+            self._send_json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+            return
+
+        self._send_json(HTTPStatus.OK, result)
+
     def _handle_list(self) -> None:
         try:
-            cookies = load_cookies()
-            items = fetch_hme_list(cookies)
+            items, source = fetch_hme_list_with_source()
             export_hme_list(items)
         except Exception as exc:
             self._send_json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
@@ -124,6 +215,8 @@ class AppHandler(BaseHTTPRequestHandler):
                 "items": items,
                 "summary": summarize_items(items),
                 "exportedTo": EMAILS_FILE.name,
+                "source": source,
+                "authStatus": get_active_auth_status(),
             },
         )
 
@@ -152,8 +245,7 @@ class AppHandler(BaseHTTPRequestHandler):
             if not normalized_ids:
                 raise ValueError("没有可执行的 anonymousId")
 
-            cookies = load_cookies()
-            current_items = fetch_hme_list(cookies)
+            current_items = fetch_hme_list()
             current_map = {item["anonymousId"]: item for item in current_items}
 
             results = []
@@ -167,18 +259,20 @@ class AppHandler(BaseHTTPRequestHandler):
                     if not item["isActive"]:
                         ok, message = True, "Already inactive"
                     else:
-                        ok, message = deactivate_hme(cookies, anon_id)
+                        ok, message = deactivate_hme(None, anon_id)
                 else:
-                    ok, message = delete_hme(cookies, anon_id)
+                    ok, message = delete_hme(None, anon_id)
 
-                results.append({
-                    "anonymousId": anon_id,
-                    "email": item.get("email", ""),
-                    "ok": ok,
-                    "message": message,
-                })
+                results.append(
+                    {
+                        "anonymousId": anon_id,
+                        "email": item.get("email", ""),
+                        "ok": ok,
+                        "message": message,
+                    }
+                )
 
-            refreshed_items = fetch_hme_list(cookies)
+            refreshed_items, source = fetch_hme_list_with_source()
             export_hme_list(refreshed_items)
         except Exception as exc:
             self._send_json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
@@ -192,6 +286,8 @@ class AppHandler(BaseHTTPRequestHandler):
                 "items": refreshed_items,
                 "summary": summarize_items(refreshed_items),
                 "exportedTo": EMAILS_FILE.name,
+                "source": source,
+                "authStatus": get_active_auth_status(),
             },
         )
 
