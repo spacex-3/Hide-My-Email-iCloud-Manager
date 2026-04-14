@@ -2,12 +2,17 @@
 
 一个本地 Web UI，用来管理 Apple iCloud 的 Hide My Email 别名。
 
-这个版本支持两种方式：
+当前版本支持：
 
 - **账号登录模式**：直接输入 Apple ID / 密码，支持 **美国区** 与 **中国区**，并把 session / cookiejar 持久化到本地。
-- **手动 Cookies 模式**：兼容旧版 `cookies.txt` 用法。
+- **手动 Cookies 模式**：兼容旧版 `cookies.txt`。
+- **多账号持久化与切换**：保存多个已登录账号，切换时优先复用本地 session，尽量避免重新登录和重新 2FA。
+- **Docker / Docker Compose 部署**：适合在 VPS 上用容器运行。
+- **GitHub Actions 多架构镜像构建**：自动构建 `linux/amd64` 和 `linux/arm64` 并推送到 GHCR。
 
 > 注意：这里实现的是“**本地持久化登录态**”，不是永不过期。Apple 仍可能在一段时间后要求重新登录或重新做 2FA。
+
+---
 
 ## 功能
 
@@ -15,15 +20,16 @@
 - 支持 **美国区 / 中国区** Apple ID 登录
 - 本地持久化 session / cookiejar
 - 支持 2FA 验证流程
-- **支持保存多个账号并直接切换**
-- **切换账号时优先复用本地 session，尽量避免重新登录 / 重新 2FA**
-- **每个账号独立保存列表缓存、cookies 快照、导出文件**
+- 保存多个账号并直接切换
+- 每个账号独立保存列表缓存、cookies 快照、导出文件
 - 浏览器内编辑和保存 `cookies.txt`
 - 拉取、搜索、筛选别名
 - 批量停用 / 删除选中别名
 - 自动导出当前活动账号的最新列表到 `emails.txt`
 
-## 安装
+---
+
+## 安装（本地运行）
 
 ### 1. 克隆仓库
 
@@ -38,7 +44,7 @@ cd Hide-My-Email-iCloud-Manager
 pip install -r requirements.txt
 ```
 
-## 启动 Web UI
+### 3. 启动 Web UI
 
 ```bash
 python server.py
@@ -49,6 +55,8 @@ python server.py
 ```text
 http://127.0.0.1:8000
 ```
+
+---
 
 ## 登录模式
 
@@ -66,11 +74,13 @@ http://127.0.0.1:8000
 
 登录成功后：
 
-- 本地 session 会保存到 `.pyicloud/`
-- 当前 cookies 快照会保存到账号对应的本地快照文件
+- 本地 session 会保存到 `.pyicloud/` 或 Docker 映射的数据目录
+- 当前账号 cookies 快照会保存到账号对应的本地快照文件
 - 当前活动账号的 cookies 也会同步到顶层 `cookies.txt`
 - 当前活动账号的列表也会同步到顶层 `emails.txt`
 - 后续重新打开页面时会优先尝试复用本地 session
+
+---
 
 ## 多账号持久化与切换
 
@@ -87,7 +97,7 @@ http://127.0.0.1:8000
 - 点击某个已保存账号后，会：
   - 切换当前活动账号
   - 优先复用该账号已有 session
-  - 如果本地存在该账号的列表缓存，也会同步显示该账号对应缓存
+  - 如果该账号存在列表缓存，也会同步显示该账号对应缓存
 
 ### 什么时候不需要重新登录 / 2FA
 
@@ -102,13 +112,15 @@ http://127.0.0.1:8000
 - 该账号之前缓存的列表仍可显示
 - 但要继续实时刷新时，需要重新登录一次
 
+---
+
 ## 列表缓存与导出
 
 当前实现里，**每个账号的列表缓存是独立的**。
 
 ### 账号级缓存文件
 
-保存在：
+默认保存在：
 
 ```text
 .pyicloud/lists/
@@ -131,6 +143,8 @@ http://127.0.0.1:8000
 - **账号级缓存** 用于多账号区分
 - **根目录文件** 仅表示当前活动账号
 
+---
+
 ## 手动 Cookies 模式
 
 如果你仍然想手动维护 cookies：
@@ -152,6 +166,132 @@ cookies = {
 
 页面里也可以直接编辑并保存 `cookies.txt`。
 
+---
+
+## Docker 部署
+
+### 方式 1：直接用 `docker run`
+
+```bash
+docker run -d \
+  --name hide-my-email \
+  -p 8000:8000 \
+  -e TZ=Asia/Hong_Kong \
+  -e HOST=0.0.0.0 \
+  -e PORT=8000 \
+  -e HME_DATA_DIR=/data/state \
+  -e HME_EXPORT_DIR=/data/export \
+  -v $(pwd)/docker-data:/data \
+  ghcr.io/spacex-3/hide-my-email-icloud-manager:latest
+```
+
+### 方式 2：Docker Compose（推荐）
+
+仓库已提供：
+
+- `docker-compose.yml`
+- `.env.example`
+
+先复制环境文件：
+
+```bash
+cp .env.example .env
+```
+
+然后启动：
+
+```bash
+docker compose up -d
+```
+
+打开：
+
+```text
+http://YOUR_VPS_IP:8000
+```
+
+### Compose 里的主要环境变量
+
+主要配置都放在 `docker-compose.yml` 的 `environment` 里：
+
+- `TZ`：时区
+- `HOST`：监听地址，容器里建议 `0.0.0.0`
+- `PORT`：容器内服务端口
+- `HME_DATA_DIR`：账号 session / 列表缓存 / cookies 快照保存目录
+- `HME_EXPORT_DIR`：当前活动账号的 `cookies.txt` / `emails.txt` 导出目录
+- `HME_COOKIES_FILE`：导出的 cookies 文件名
+- `HME_EMAILS_FILE`：导出的 emails 文件名
+
+默认 Compose 会把宿主机目录：
+
+```text
+./docker-data
+```
+
+挂载到容器内：
+
+```text
+/data
+```
+
+这样 VPS 重启或容器重建后，账号数据仍然保留。
+
+---
+
+## GitHub Actions 多架构镜像构建
+
+仓库已提供：
+
+```text
+.github/workflows/docker.yml
+```
+
+工作流会在以下场景自动构建并推送到 GHCR：
+
+- push 到 `main`
+- push `v*` tag
+- 手动触发 `workflow_dispatch`
+
+### 默认推送镜像
+
+```text
+ghcr.io/<github-owner>/hide-my-email-icloud-manager
+```
+
+### 生成的平台
+
+- `linux/amd64`
+- `linux/arm64`
+
+### 常见标签
+
+- `latest`（默认分支）
+- 分支名
+- tag 名
+- sha
+
+如果你仓库已经开启 GitHub Actions 和 Packages，这个 workflow 就能直接工作。
+
+---
+
+## 项目结构
+
+```text
+server.py                   本地 HTTP 服务
+hme_core.py                 登录态、账号切换、列表缓存、Hide My Email 核心逻辑
+web/index.html              前端结构
+web/app.js                  前端交互
+web/styles.css              前端样式
+Dockerfile                  镜像构建文件
+docker-compose.yml          VPS / 本地容器编排
+.dockerignore               Docker 构建忽略规则
+.env.example                Compose 示例环境配置
+.github/workflows/docker.yml GitHub Actions 多架构构建
+cookies.txt.template        手动 Cookie 模板
+```
+
+---
+
 ## Web UI 行为
 
 - 启动 `server.py` **不会自动删除** 别名
@@ -159,16 +299,7 @@ cookies = {
 - “刷新列表”只会拉取当前活动账号列表并更新缓存 / 导出文件
 - 只有在你明确选择行并确认后，才会执行停用或删除
 
-## 项目结构
-
-```text
-server.py              本地 HTTP 服务
-hme_core.py            登录态、账号切换、列表缓存、Hide My Email 核心逻辑
-web/index.html         前端结构
-web/app.js             前端交互
-web/styles.css         前端样式
-cookies.txt.template   手动 Cookie 模板
-```
+---
 
 ## 隐私与本地文件
 
@@ -177,11 +308,15 @@ cookies.txt.template   手动 Cookie 模板
 - `cookies.txt`
 - `emails.txt`
 - `.pyicloud/`
+- `docker-data/`
 - `venv/`
 - `__pycache__/`
 - `.DS_Store`
+- `.env`
 
 不要把真实 iCloud cookies、session 文件、账号快照或账号信息提交到远程仓库。
+
+---
 
 ## 导出格式
 
@@ -192,6 +327,8 @@ anonymousId: abc123... | email: xyz@icloud.com | active: True
 anonymousId: def456... | email: abc@icloud.com | active: False
 ```
 
+---
+
 ## 依赖
 
 - Python 3.7+
@@ -199,12 +336,16 @@ anonymousId: def456... | email: abc@icloud.com | active: False
 - `rich`
 - `pyicloud`
 
+---
+
 ## 说明
 
 - 中国区登录会走 `*.apple.com.cn / *.icloud.com.cn` 相关端点
 - 持久化 session 主要用于减少重复登录和重复 2FA
 - 多账号切换依赖本地保存的 session 是否仍然有效
 - Apple 的风控、session 过期时间、2FA 重新验证周期仍由 Apple 决定
+
+---
 
 ## License
 

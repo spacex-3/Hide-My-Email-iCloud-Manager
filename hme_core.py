@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import json
+import os
 import pprint
 import shutil
 import threading
@@ -20,10 +21,12 @@ else:  # pragma: no cover - trivial branch
     PYCLOUD_IMPORT_ERROR = None
 
 PROJECT_ROOT = Path(__file__).resolve().parent
-COOKIES_FILE = PROJECT_ROOT / "cookies.txt"
+EXPORT_ROOT = Path(os.getenv("HME_EXPORT_DIR", str(PROJECT_ROOT))).expanduser().resolve()
+DATA_ROOT = Path(os.getenv("HME_DATA_DIR", str(PROJECT_ROOT / ".pyicloud"))).expanduser().resolve()
+COOKIES_FILE = EXPORT_ROOT / os.getenv("HME_COOKIES_FILE", "cookies.txt")
 COOKIES_TEMPLATE_FILE = PROJECT_ROOT / "cookies.txt.template"
-EMAILS_FILE = PROJECT_ROOT / "emails.txt"
-AUTH_ROOT = PROJECT_ROOT / ".pyicloud"
+EMAILS_FILE = EXPORT_ROOT / os.getenv("HME_EMAILS_FILE", "emails.txt")
+AUTH_ROOT = DATA_ROOT
 ACTIVE_PROFILE_FILE = AUTH_ROOT / "active_profile.json"
 PROFILES_FILE = AUTH_ROOT / "profiles.json"
 ACCOUNT_LISTS_ROOT = AUTH_ROOT / "lists"
@@ -52,6 +55,11 @@ HEADERS = {
     "sec-ch-ua-mobile": "?0",
     "sec-ch-ua-platform": '"Windows"',
 }
+
+def ensure_export_root() -> None:
+    COOKIES_FILE.parent.mkdir(parents=True, exist_ok=True)
+    EMAILS_FILE.parent.mkdir(parents=True, exist_ok=True)
+
 
 DEFAULT_COOKIE_TEMPLATE = """cookies = {
     'X-APPLE-WEBAUTH-USER': '\"v=1:s=0:d=YOUR_DSID\"',
@@ -140,6 +148,7 @@ def load_cookie_template(path: Path = COOKIES_TEMPLATE_FILE) -> str:
 
 
 def save_cookies_mapping(cookies: Dict[str, str], path: Path = COOKIES_FILE) -> Dict[str, str]:
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(format_cookie_text(cookies), encoding="utf-8")
     return cookies
 
@@ -193,6 +202,7 @@ def ensure_auth_root() -> None:
     AUTH_ROOT.mkdir(parents=True, exist_ok=True)
     ACCOUNT_LISTS_ROOT.mkdir(parents=True, exist_ok=True)
     ACCOUNT_COOKIES_ROOT.mkdir(parents=True, exist_ok=True)
+    ensure_export_root()
 
 
 def relative_project_path(path: Path | None) -> str:
@@ -509,6 +519,7 @@ def is_active_profile(apple_id: str, region: str) -> bool:
 
 
 def copy_to_active_exports(apple_id: str, region: str) -> None:
+    ensure_export_root()
     text_path = account_list_text_path(apple_id, region)
     cookie_path = account_cookie_snapshot_path(apple_id, region)
     if text_path.exists():
@@ -549,6 +560,7 @@ def summarize_items(items: List[Dict[str, Any]]) -> Dict[str, int]:
 
 
 def export_hme_list(items: List[Dict[str, Any]], path: Path = EMAILS_FILE) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
     lines = [
         (
             f"anonymousId: {item['anonymousId']} | "

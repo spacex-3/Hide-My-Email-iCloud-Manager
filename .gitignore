@@ -6,3 +6,5 @@ emails.txt
 cookies.txt
 .pyicloud/
 .DS_Store
+docker-data/
+.env
