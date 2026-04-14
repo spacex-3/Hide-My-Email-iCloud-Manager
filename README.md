@@ -187,18 +187,9 @@ docker run -d \
 
 ### 方式 2：Docker Compose（推荐）
 
-仓库已提供：
+现在已经改成 **单个 compose 文件即可直接运行**。
 
-- `docker-compose.yml`
-- `.env.example`
-
-先复制环境文件：
-
-```bash
-cp .env.example .env
-```
-
-然后启动：
+在 VPS 上只需要放一个 `docker-compose.yml`，然后执行：
 
 ```bash
 docker compose up -d
@@ -210,9 +201,9 @@ docker compose up -d
 http://YOUR_VPS_IP:8000
 ```
 
-### Compose 里的主要环境变量
+### Compose 里的主要配置
 
-主要配置都放在 `docker-compose.yml` 的 `environment` 里：
+主要配置都已经直接写在 `docker-compose.yml` 的 `environment` 里：
 
 - `TZ`：时区
 - `HOST`：监听地址，容器里建议 `0.0.0.0`
@@ -222,10 +213,10 @@ http://YOUR_VPS_IP:8000
 - `HME_COOKIES_FILE`：导出的 cookies 文件名
 - `HME_EMAILS_FILE`：导出的 emails 文件名
 
-默认 Compose 会把宿主机目录：
+默认 Compose 使用 Docker **命名卷**：
 
 ```text
-./docker-data
+hide_my_email_data
 ```
 
 挂载到容器内：
@@ -234,7 +225,7 @@ http://YOUR_VPS_IP:8000
 /data
 ```
 
-这样 VPS 重启或容器重建后，账号数据仍然保留。
+这样你不需要提前创建任何本地目录；VPS 重启或容器重建后，账号数据仍然保留。
 
 ---
 
@@ -285,7 +276,6 @@ web/styles.css              前端样式
 Dockerfile                  镜像构建文件
 docker-compose.yml          VPS / 本地容器编排
 .dockerignore               Docker 构建忽略规则
-.env.example                Compose 示例环境配置
 .github/workflows/docker.yml GitHub Actions 多架构构建
 cookies.txt.template        手动 Cookie 模板
 ```

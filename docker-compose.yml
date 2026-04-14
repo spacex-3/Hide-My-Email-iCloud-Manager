@@ -1,10 +1,10 @@
 services:
   hide-my-email:
-    image: ${IMAGE_NAME:-ghcr.io/spacex-3/hide-my-email-icloud-manager:latest}
+    image: ghcr.io/spacex-3/hide-my-email-icloud-manager:latest
     container_name: hide-my-email-icloud-manager
     restart: unless-stopped
     environment:
-      TZ: ${TZ:-Asia/Hong_Kong}
+      TZ: Asia/Hong_Kong
       HOST: 0.0.0.0
       PORT: 8000
       HME_DATA_DIR: /data/state
@@ -12,12 +12,15 @@ services:
       HME_COOKIES_FILE: cookies.txt
       HME_EMAILS_FILE: emails.txt
     ports:
-      - "${BIND_PORT:-8000}:8000"
+      - "8000:8000"
     volumes:
-      - ./docker-data:/data
+      - hide_my_email_data:/data
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/auth/status', timeout=5)\" >/dev/null 2>&1 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 20s
+
+volumes:
+  hide_my_email_data:
